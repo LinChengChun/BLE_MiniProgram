@@ -24,15 +24,35 @@ Page({
         dataView[i] = that.data.inputText.charCodeAt(i)
       }
 
-      wx.writeBLECharacteristicValue({
-        deviceId: that.data.connectedDeviceId,
-        serviceId: that.data.services[0].uuid,
-        characteristicId: that.data.characteristics[0].uuid,
-        value: buffer,
-        success: function (res) {
-          console.log('发送成功')
-        }
-      })
+      console.log("deviceId: ", that.data.connectedDeviceId)
+      console.log("serviceId: ", that.data.services[0].uuid)
+      let writeCharacteristic = that.getWriteCharacteristics()
+      if(writeCharacteristic){
+        console.log("characteristicId: ", writeCharacteristic.uuid)
+        wx.writeBLECharacteristicValue({
+          deviceId: that.data.connectedDeviceId,
+          serviceId: that.data.services[0].uuid,
+          characteristicId: writeCharacteristic.uuid,
+          value: buffer,
+          success: function (res) {
+            console.log('发送成功')
+          },
+          fail: function(error){
+            console.error("异常情况：", error)
+          }
+        })
+      }
+      let readCharacteristic = that.getReadCharacteristics()
+      if(readCharacteristic){
+        wx.readBLECharacteristicValue({
+          deviceId: that.data.connectedDeviceId,
+          serviceId: that.data.services[0].uuid,
+          characteristicId: readCharacteristic.uuid,
+          success (res) {
+            console.log('readBLECharacteristicValue:', res.errCode)
+          }
+        })
+      }
     }
     else {
       wx.showModal({
@@ -46,6 +66,28 @@ Page({
         }
       })
     }
+  },
+  getWriteCharacteristics: function(){
+    let characteristics = this.data.characteristics
+    for (let i = 0; i < characteristics.length; i++) {
+      const element = characteristics[i]
+      let properties = element.properties
+      if(properties.write){
+        return element
+      }
+    }
+    return null
+  },
+  getReadCharacteristics: function(){
+    let characteristics = this.data.characteristics
+    for (let i = 0; i < characteristics.length; i++) {
+      const element = characteristics[i]
+      let properties = element.properties
+      if(properties.read){
+        return element
+      }
+    }
+    return null
   },
   onLoad: function (options) {
     var that = this
@@ -61,11 +103,12 @@ Page({
         that.setData({
           services: res.services
         })
+        // 获取蓝牙设备某个服务中所有特征值(characteristic)
         wx.getBLEDeviceCharacteristics({
           deviceId: options.connectedDeviceId,
           serviceId: res.services[0].uuid,
           success: function (res) {
-            console.log(res.characteristics)
+            console.log("获取蓝牙设备某个服务中所有特征值: ", res.characteristics)
             that.setData({
               characteristics: res.characteristics
             })
@@ -76,6 +119,9 @@ Page({
               characteristicId: that.data.characteristics[0].uuid,
               success: function (res) {
                 console.log('启用notify成功')
+              },
+              fail: function(error){
+                console.error('异常情况', error)
               }
             })
           }
